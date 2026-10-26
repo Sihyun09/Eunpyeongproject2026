@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ko">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <meta name="description" content="은평구 공동주택 131개 단지의 시설 접근성 기반 공간취약지수를 탐색하는 지역연계 연구 지도입니다.">
+        <meta name="theme-color" content="#f4f5f1">
+        <meta name="referrer" content="strict-origin-when-cross-origin">
+        <title>은평구 공간취약성 지도</title>
+        
+        
+            <link rel="stylesheet" href="./css/leaflet.css">
+        <link rel="stylesheet" href="./css/style.css">
+    </head>
+    <body>
+        <div id="appStatus" class="app-status" role="status" aria-live="polite">분석 데이터와 지도를 불러오는 중입니다. 데이터 용량에 따라 잠시 걸릴 수 있습니다.</div>
+        <noscript><div class="app-status app-status-error">이 지도는 JavaScript가 필요합니다. 브라우저 설정에서 JavaScript를 활성화해 주세요.</div></noscript>
+        <header>
+            <div>
+                <div class="eyebrow">REGIONAL RESEARCH / EUNPYEONG</div>
+                <h1>은평구 공간취약성 지도</h1>
+            </div>
+            <div class="headnote">
+                <span class="pill">탐색적 지수 · 2026.10.19</span>
+                <br>공동주택 131개 단지의 보행 접근성 비교
+            </div>
+        </header>
+        <div class="layout">
+            <aside class="left">
+                <div class="section">
+                    <div class="label">01 / 분석 조건</div>
+                    <h2>어디가 더 닿기 어려울까</h2>
+                    <p class="muted">점수가 높을수록 분석에 포함된 생활·복지시설의 보행 접근성이 부족합니다.</p>
+                    <div class="note">
+                        고독사 발생확률이 아닙니다.<br>행정동 인구·독거노인 특성은 미반영입니다.
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="label">거리감쇠 기준 λ</div>
+                    <div class="seg" id="lambda">
+                        <button data-v="300">300m</button>
+                        <button class="active" data-v="500">500m</button>
+                        <button data-v="800">800m</button>
+                    </div>
+                    <p class="smallnote">이용 한계가 아니라 거리 영향의 비교 기준입니다.</p>
+                    <label class="label" for="weights">범주 가중치</label>
+                    <select id="weights">
+                        <option value="user">참여자 합의 가중치</option>
+                        <option value="equal">9개 범주 동일 가중치</option>
+                    </select>
+                    <label class="check">
+                        <input type="checkbox" id="excludeVisit" checked>
+                        <span>
+                            명칭상 방문·재가요양 기관 제외<br>
+                            <span class="smallnote">기본모형 · 보행 접근성에 한정</span>
+                        </span>
+                    </label>
+                    <label class="label" for="viewMode">지도로 볼 지표</label>
+                    <select id="viewMode">
+                        <option value="total">종합 공간취약지수</option>
+                        <option value="straight">직선거리 대조점수</option>
+                    </select>
+                    <label class="check">
+                        <input type="checkbox" id="topOnly">
+                        <span>현재 조건 상위 20%만 강조</span>
+                    </label>
+                </div>
+                <div class="section">
+                    <div class="label">02 / 단지 찾기</div>
+                    <input id="search" type="search" placeholder="단지명 또는 행정동 검색" aria-label="단지명 또는 행정동 검색">
+                    <div id="ranking"></div>
+                    <div class="smallnote">⚠ 도로망 우회 검토가 필요한 단지</div>
+                </div>
+                <div class="section">
+                    <div class="label">03 / 시설 레이어</div>
+                    <div id="facilityChecks"></div>
+                    <label class="check">
+                        <input type="checkbox" id="tiles">
+                        <span>온라인 배경지도 표시</span>
+                    </label>
+                    <p class="smallnote">외곽 1.2km 시설 포함. 공개지도 자료의 누락 가능성이 남아 있습니다.</p>
+                </div>
+                <div class="buttons">
+                    <button id="methodBtn">분석 방법·출처</button>
+                    <button id="export">현재 결과 CSV</button>
+                    <button id="fit">전체 보기</button>
+                </div>
+            </aside>
+            <main class="maparea">
+                <div id="map" aria-label="은평구 단지별 공간취약성 지도"></div>
+                <div class="mapstrip">
+                    <div class="stat">
+                        <b>131</b>
+                        <span>분석 대상 단지</span>
+                    </div>
+                    <div class="stat">
+                        <b id="median">—</b>
+                        <span>현재 조건 중앙값</span>
+                    </div>
+                    <div class="stat">
+                        <b id="review">—</b>
+                        <span>우회 검토 단지</span>
+                    </div>
+                </div>
+                <div class="legend">
+                    <strong id="legendTitle">종합 공간취약지수</strong>
+                    <div class="gradient"></div>
+                    <div class="scale">
+                        <span>0 · 낮음</span>
+                        <span>50</span>
+                        <span>높음 · 100</span>
+                    </div>
+                    <p class="smallnote" id="legendNote">표본의 최솟값·최댓값으로 재조정하지 않은 점수</p>
+                </div>
+            </main>
+            <aside class="right">
+                <div class="label">04 / 단지별 분석</div>
+                <div id="detail">
+                    <div class="empty">지도 또는 목록에서 단지를 선택하세요.</div>
+                </div>
+            </aside>
+        </div>
+        <dialog id="method">
+            <button class="modalclose" id="closeMethod">닫기</button>
+            <h2>점수가 만들어지는 과정</h2>
+            <div class="method">
+                <p>
+                    <b>현재 결과는 인프라 접근성 기반 공간취약지수입니다.</b>
+                    고독사 확률·개인별 위험도·단지 내 고령자 구성은 측정하지 않습니다. 독거노인·고령인구 통계의 수치를 검증하여 확보하지 못해 인구사회학적 요인은 결합하지 않았습니다.
+                </p>
+                <h3>거리 → 범주별 부족도 → 가중합</h3>
+                <p>
+                    d<sub>ik</sub>
+                    는 주택 i에서 범주 k의 가장 가까운 시설까지의 보행망 거리입니다. 도로 간선 위로 좌표를 투영해 간선을 분할하고, 양끝의 도로 연결거리를 포함한 다익스트라 최단경로를 계산했습니다.
+                </p>
+                <p style="background:#edf5f0;padding:15px;font-size:15px">
+                    S<sub>i</sub>
+                    = 100 × Σ w<sub>k</sub>
+                    [1 − exp(−d<sub>ik</sub>
+                    / λ)]
+                </p>
+                <p>기본 λ=500m는 비교용 가정입니다. 300/800m·동일 가중치로 결과를 대조할 수 있습니다. 범주별 점수 범위가 0~1이므로 별도의 표본 최솟값·최댓값 정규화는 하지 않습니다. 참여자 가중치는 인과효과나 예측모형의 계수가 아닙니다.</p>
+                <table id="weightTable"></table>
+                <h3>보완 내용과 검증</h3>
+                <div id="auditText"></div>
+                <h3>경로 검토 표시</h3>
+                <p>보행거리 / 최대(직선거리,30m)가 3을 넘고 보행거리 초과분이 300m를 넘는 경로를 검토 대상으로 표시했습니다. 실제 지형·담장 또는 지도에 빠진 출입구·길 때문일 수 있습니다. 지도에 경로를 그렸다는 사실만으로 실제 보행 가능한 경로임을 보장하지 않습니다. 단지 중심점과 공원 대표점의 오차, 경사·계단·횡단보도 대기는 남아 있습니다. 연결선은 실제 출입구 경로로 검증되지 않았습니다.</p>
+                <h3>대표성과 데이터 한계</h3>
+                <p>아파트·주상복합 등 공동주택 131개만 포함하며 단독·다가구·다세대를 대표하지 않습니다. 원본 시설은 수집 기준일과 서비스유형이 충분히 제공되지 않았고, OSM 보완자료의 완전성·영업상태도 전수 검증하지 않았습니다. 특히 정신건강시설은 원본 2개 중심입니다. 방문·재가요양 기관 제외는 시설명 기반 규칙이며 실제 서비스 자격·용량은 반영하지 않았습니다. 전체기관 비교 시에는 점수만 바뀌고 상세 경로 버튼은 기본모형의 경로를 표시합니다.</p>
+                <h3>민감도 수치의 뜻</h3>
+                <p>기본모형과 비교한 6개 조건, 가중치 ±20% 및 λ=300/500/800m를 조합한 300개 추가 시나리오에서 순위를 비교했습니다. 표시된 순위 범위·상위20% 포함비율은 이 306개 시나리오에 대한 값이며, 고독사 확률이나 통계적 신뢰구간이 아닙니다.</p>
+                <h3>첨부 엑셀</h3>
+                <p>시도별 2017~2024년 시설 수·고독사 수 집계이며 은평구 행정동 자료가 아닙니다. 중복 항목과 결측값이 있고 공간 단위가 다르므로 이번 단지별 지수의 학습자료로 사용하지 않았습니다.</p>
+                <h3>자료 출처</h3>
+                <p>
+                    <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors · ODbL</a>
+                    <br>
+                    <a href="https://github.com/vuski/admdongkor/tree/master/ver20251231" target="_blank" rel="noopener">2025-12-31 행정동 경계 · 통계청 SGIS 자료 가공 배포본</a>
+                    <br>
+                    <a href="https://www.eunpyeong.or.kr/복지관안내/오시는길/" target="_blank" rel="noopener">은평종합사회복지관 공식 주소</a>
+                    <br>
+                    <a href="https://doi.org/10.1787/9789264043466-en" target="_blank" rel="noopener">OECD/EU/JRC (2008), 통합지수 구축 지침</a>
+                    <br>
+                    <a href="https://osmnx.readthedocs.io/en/stable/user-reference.html" target="_blank" rel="noopener">OSMnx 공식 문서</a>
+                </p>
+                <p>원본: 사용자 제공 시설 CSV·공동주택 CSV·Kakao 지도·지역연계 수정 엑셀. OSM 도로·시설 수집: 2026-10-19. 인구통계 미사용 사유와 상세 검증 결과는 동봉한 분석방법 문서에 기록했습니다. Leaflet 1.9.4 © Vladimir Agafonkin 및 contributors, BSD 2-Clause. 실행코드가 내장되어 있습니다.</p>
+            </div>
+        </dialog>
+        
+        
+        <script src="./js/leaflet.js"></script>
+    <script src="./js/app.js"></script>
+    </body>
+</html>
